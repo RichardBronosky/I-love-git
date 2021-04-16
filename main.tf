@@ -1,5 +1,5 @@
 provider "aws" {
-  region = "eu-west-1"
+  region = "us-west-1"
 }
 
 data "aws_security_group" "default" {
@@ -14,7 +14,7 @@ module "vpc" {
 
   cidr = "20.10.0.0/16" # 10.0.0.0/8 is reserved for EC2-Classic
 
-  azs                 = ["eu-west-1a", "eu-west-1b", "eu-west-1c"]
+  azs                 = ["us-west-1a", "us-west-1b", "us-west-1c"]
   private_subnets     = ["20.10.1.0/24", "20.10.2.0/24", "20.10.3.0/24"]
   public_subnets      = ["20.10.11.0/24", "20.10.12.0/24", "20.10.13.0/24"]
   database_subnets    = ["20.10.21.0/24", "20.10.22.0/24", "20.10.23.0/24"]
@@ -153,7 +153,7 @@ module "vpc" {
 # Data source used to avoid race condition
 data "aws_vpc_endpoint" "dynamodb" {
   vpc_id       = module.vpc.vpc_id
-  service_name = "com.amazonaws.eu-west-1.dynamodb"
+  service_name = "com.amazonaws.us-west-1.dynamodb"
 }
 
 data "aws_iam_policy_document" "dynamodb_endpoint_policy" {
