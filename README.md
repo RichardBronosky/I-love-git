@@ -2,11 +2,14 @@
 
 This demonstrates how git commit hashes are calculated.
 
-## Second Commit
+## Check Point 1
 
 The first 3 lines of this file were in the first commit. Every other commit will
-add an `H2` stating the commit number. But what we really care about is the
-commit hash. Let's look at how it's made.
+add an `H2` stating the "Check Point" number I am refering to. (I will also tag
+the previous commit to make it easy to `checkout` the code in a state that will
+allow you to run the commands yourself and get the same result.
+
+What we really care about is the commit hash. Let's look at how it's made.
 
 ### A Tale of Two Hashes
 
@@ -18,7 +21,8 @@ both `SHA1` sums.
 
 ```
 $ git log
-commit 8a434dfee44117b0048398957d24e811c8ba2a20 (HEAD -> master)
+commit 8a434dfee44117b0048398957d24e811c8ba2a20 (HEAD -> master, tag: cp1)
+
 Author: John Doe <john@example.com>
 Date:   Fri Mar 19 08:46:57 2021 -0500
 
@@ -59,3 +63,125 @@ committer John Doe <john@example.com> 1618548359 -0500
 
 Constitution
 ```
+
+## Check Point 2
+
+In the previous commit, I called that metadata, a "file". We can locate the file
+.in the `.git` folder by searching for files with a name ending with the last
+few characters of the hash.
+
+```
+$ find .git -name '*ba2a20'
+.git/objects/8a/434dfee44117b0048398957d24e811c8ba2a20
+
+```
+
+We can check the log to see the new hash.
+
+```
+git log
+commit 5f0a3dea2d90f4faf46695f53745e604994f3f6d (HEAD -> master)
+Author: John Doe <john@example.com>
+Date:   Fri Apr 16 00:55:07 2021 -0500
+
+    Explain the commit metadata
+
+commit 8a434dfee44117b0048398957d24e811c8ba2a20
+Author: John Doe <john@example.com>
+Date:   Fri Mar 19 08:46:57 2021 -0500
+
+    Initial Constitution
+```
+
+We can get the metadata for that commit.
+
+```
+$ meta
+tree 36696c6a107ce4afa87b45ea43feee003b248097
+parent 8a434dfee44117b0048398957d24e811c8ba2a20
+author John Doe <john@example.com> 1618552507 -0500
+committer John Doe <john@example.com> 1618552507 -0500
+
+Explain the commit metadata
+```
+
+This, being **not** the first commit, has an additional `parent` line in it. If
+we check the **actual** `git` log file, we will see that this data is
+derivitive.
+
+```
+$ cat .git/logs/HEAD
+0000000000000000000000000000000000000000 9d3b7b986fc7c9c83f99d51162918f1741b60da2 John Doe <john@example.com> 1616161616 -0500	commit (amend): Initial Constitution
+8a434dfee44117b0048398957d24e811c8ba2a20 5f0a3dea2d90f4faf46695f53745e604994f3f6d John Doe <john@example.com> 1618552507 -0500	commit: Explain the commit metadata
+```
+
+Here we can see that every line in the log has:
+- The hash that our HEAD was at before
+- The hash that our HEAD was at after
+- Who performed the action
+- When the action was performed
+- What the action was
+- The *summary* of the message give
+
+Before I talk about what I mean by "summary", lets look at what else is in that
+logs directory.
+
+```
+$ find .git/logs -not -type d
+.git/logs/HEAD
+.git/logs/refs/heads/master
+```
+
+Both of those are files. I filtered out the directories because it let's me look
+cool when proving my next point.
+
+```
+$ sha1sum $(!!)
+edec300e7d91d06ad48dcbeb0b637224da1e3231  .git/logs/HEAD
+edec300e7d91d06ad48dcbeb0b637224da1e3231  .git/logs/refs/heads/master
+```
+
+Rather than `cat`ing the master log file to prove that the contents look the
+same, I proved that the contents are cryptographically congruent by hashing
+their content with the command used to produce a `SHA1` sum. If you can produce
+that from the content of a file, you can create the hash yourself.
+
+To do that, it will be easier to read, if we *write* a few more tools.
+
+```
+length(){ printf "commit %s\0" $(meta | wc -c); }
+```
+
+We will use the `length` function to prepend the "file size" to the `meta`
+function and the `sha1sum` of that will match our commit hash.
+
+```
+$ length
+commit 230
+
+$ length; meta
+commit 230tree 36696c6a107ce4afa87b45ea43feee003b248097
+parent 8a434dfee44117b0048398957d24e811c8ba2a20
+author John Doe <john@example.com> 1618552507 -0500
+committer John Doe <john@example.com> 1618552507 -0500
+
+$ (length; meta) | sha1sum
+5f0a3dea2d90f4faf46695f53745e604994f3f6d  -
+```
+
+But if I copy the output of from my screen and get the `sha1sum` of that, it
+will **not** match our commit hash.
+
+```
+$ pbpaste | sha1sum
+141c5d133bb8fe58548e53395801202bdab166e0  -
+```
+
+The reason for this is because even though it looks like `commit 230` is right
+up against `tree` in the output. If we look carefully at our `length` function,
+we'll notice that `commit %s\0` puts a `null` byte character at the end. But, we
+can't see it on our terminal. We can't copy it. But, we can see that changing a
+single byte, which was imperceivable to our eyes, results in a hash which is
+**very** easy to recognize as *broken*. That is why I didn't cat the
+`.git/logs/refs/heads/master` file earlier to compare it to the
+`.git/logs/HEAD`.
